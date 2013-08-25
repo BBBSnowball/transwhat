@@ -48,7 +48,8 @@ class Bot():
 			"prune": self._prune,
 			"welcome": self._welcome,
 			"fortune": self._fortune,
-			"sync": self._sync
+			"sync": self._sync,
+			"add": self._add
 		}
 
 	def parse(self, message):
@@ -154,6 +155,38 @@ class Bot():
 			self.__do_import(token)
 			self.session.updateRoster()
 
+	def _add(self, *numbers):
+		#self.send("Looking up %s on WhatsApp" % number)
+
+		result = {}
+		for number in numbers:
+	                result[number] = { 'nick': None, 'state': 0 }
+
+		# WhatsApp
+                user = self.session.legacyName
+                password = self.session.password
+                sync = WAContactsSyncRequest(user, password, result.keys())
+                whatsapp = sync.send()['c']
+
+                for w in whatsapp:
+                        result[w['p']]['state'] = w['w']
+                        result[w['p']]['number'] = w['n']
+
+                self.send("%d buddies are using whatsapp" % len(filter(lambda w: w['w'], whatsapp)))
+
+                for r in result.values():
+                        if r['nick']:
+                                self.session.buddies.add(
+                                        number = r['number'],
+                                        nick = r['nick'],
+                                        groups = [u'added'],
+                                        state = r['state']
+                                )
+                                self.send("buddy %s has nick '%s'" % (r['number'], r['nick']))
+
+                self.send("%d buddies imported" % len(whatsapp))
+		
+
 	def _sync(self):
 		user = self.session.legacyName
 		password = self.session.password
@@ -173,6 +206,7 @@ class Bot():
 \\import [token]		import buddies from Google
 \\sync			sync your imported contacts with WhatsApp
 \\fortune [database]		give me a quote
+\\add number		add a buddy by number
 
 following user commands are available:
 \\lastseen			request last online timestamp from buddy""")
